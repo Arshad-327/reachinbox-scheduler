@@ -1,9 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { toast } from 'sonner';
-
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { useStatsContext } from '@/hooks/stats-context';
 import { Button } from '@/components/ui/Button';
@@ -32,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { stats } = useStatsContext();
 
   return (
@@ -44,11 +43,8 @@ export function Sidebar() {
         variant="outline"
         pill
         fullWidth
-        // Compose is the next milestone; saying so is better than a dead
-        // button that silently does nothing.
-        onClick={() => toast.info('Compose is not built yet', {
-          description: 'Campaign creation lands in the next step.',
-        })}
+        data-testid="compose-button"
+        onClick={() => router.push('/compose')}
       >
         Compose
       </Button>

@@ -121,7 +121,14 @@ export interface StatsResponse {
 
 export interface RecipientInput {
   email: string;
-  name?: string | null;
+  /**
+   * OPTIONAL, not nullable. backend/src/types/index.ts declares this
+   * `string | null`, but the zod schema that actually validates the request
+   * (recipientSchema) is `z.string().trim().max(200).optional()` — sending an
+   * explicit null is rejected with a 400 on `recipients.N.name`. The schema
+   * wins, so this mirrors the schema.
+   */
+  name?: string;
 }
 
 /**
