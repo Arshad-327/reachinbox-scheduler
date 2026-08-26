@@ -1,26 +1,75 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette.
+ *
+ * Defined once here as CSS variables and exposed to Tailwind through
+ * @theme inline, so the dashboard step gets `bg-brand-green`,
+ * `border-subtle`, `text-muted` and friends for free rather than
+ * re-typing hex codes into every component.
+ */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+
+  /* Primary action green - the solid "Login" button. */
+  --brand-green: #0fa958;
+  --brand-green-hover: #0d9550;
+  /* Pale green fill behind the "Login with Google" button. */
+  --brand-green-light: #e9f7ef;
+  --brand-green-light-hover: #ddf1e5;
+
+  /* Surfaces */
+  --surface: #ffffff;
+  --surface-muted: #f5f6f7;
+  --page-bg: #fbfbfc;
+
+  /* Lines and type */
+  --border-subtle: #e5e7eb;
+  --border-input: #ececed;
+  --text-muted: #9ca3af;
+  --text-secondary: #6b7280;
+
+  /* Feedback */
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-hover: var(--brand-green-hover);
+  --color-brand-green-light: var(--brand-green-light);
+  --color-brand-green-light-hover: var(--brand-green-light-hover);
+
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-page-bg: var(--page-bg);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-input: var(--border-input);
+  --color-text-muted: var(--text-muted);
+  --color-text-secondary: var(--text-secondary);
+
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/*
+ * No dark-mode block. The Figma screens are a single light design, and a
+ * prefers-color-scheme override would repaint the login card to something
+ * that no longer matches them.
+ */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
