@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum EmailStatus {
+  SCHEDULED // persisted, delayed job exists in BullMQ
+  QUEUED // limiter released it, worker is about to pick it up
+  PROCESSING // worker has claimed it
+  SENT
+  FAILED // terminal, all attempts exhausted
+  CANCELLED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns Campaign[]
+  emailJobs EmailJob[]
+}
+
+model Sender {
+  id       String @id @default(cuid())
+  email    String @unique // the Ethereal account address
+  fromName String
+  smtpHost String
+  smtpPort Int
+  smtpUser String
+
+  /// Stored in plaintext on purpose: these are throwaway Ethereal test
+  /// credentials, seeded from the SMTP_ACCOUNTS env var, and they can send
+  /// only to Ethereal's own catch-all mailbox. A real system would keep these
+  /// in a secrets manager (Vault / AWS Secrets Manager / Doppler) and hand the
+  /// worker a short-lived reference rather than the password itself. See the
+  /// trade-offs section of the README.
+  smtpPass String
+
+  isActive    Boolean @default(true)
+  hourlyLimit Int? // null = fall back to env default
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  emailJobs EmailJob[]
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   Sender @relation(fields: [senderId], references: [id], onDelete: Restrict)
+
+  subject         String
+  bodyHtml        String         @db.Text
+  startTime       DateTime // when the first email goes out
+  delayBetweenMs  Int // per-campaign spacing, ms
+  hourlyLimit     Int // per-campaign cap the user chose
+  totalRecipients Int            @default(0)
+  status          CampaignStatus @default(SCHEDULED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  emailJobs EmailJob[]
+
+  @@index([userId, createdAt])
+}
+
+model EmailJob {
+  id String @id @default(cuid())
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   Sender @relation(fields: [senderId], references: [id], onDelete: Restrict)
+
+  recipientEmail String
+  recipientName  String?
+  subject        String
+  bodyHtml       String  @db.Text
+
+  scheduledAt DateTime // authoritative send time -- survives restart
+  status      EmailStatus @default(SCHEDULED)
+
+  // --- idempotency & dedupe (non-negotiable per the spec) ---
+  idempotencyKey String  @unique // sha256(campaignId + recipientEmail + sequence)
+  bullJobId      String? @unique // BullMQ job id, so reconciliation can re-add exactly once
+  sequence       Int // 0-based position in the campaign, preserves ordering
+
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  lockedAt    DateTime? // set when a worker claims it
+  sentAt      DateTime?
+  messageId   String? // SMTP message id returned by Ethereal
+  previewUrl  String? // nodemailer.getTestMessageUrl -- nice for the demo video
+  lastError   String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, recipientEmail]) // same person never gets the same campaign twice
+  @@index([status, scheduledAt]) // reconciliation scan on boot
+  @@index([userId, status, scheduledAt]) // dashboard: scheduled list
+  @@index([userId, status, sentAt]) // dashboard: sent list
+  @@index([campaignId, sequence])
+}
+
+model RateLimitWindow {
+  // DB mirror of the Redis counters, so limits survive a Redis flush and
+  // so I can show the counters in the README. Redis stays the hot path.
+  id        String   @id @default(cuid())
+  scopeKey  String // "sender:<id>" or "global"
+  hourStart DateTime // truncated to the hour, UTC
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([scopeKey, hourStart])
+  @@index([hourStart])
+}

@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: reachinbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scheduler
+      POSTGRES_PASSWORD: scheduler
+      POSTGRES_DB: email_scheduler
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scheduler -d email_scheduler"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: reachinbox-redis
+    restart: unless-stopped
+    # AOF persistence is REQUIRED: BullMQ keeps delayed/scheduled jobs in Redis,
+    # so without an append-only file every email queued for a future send time
+    # would be lost on a container restart. everysec is the durability/throughput
+    # compromise we accept (at most ~1s of writes lost on a hard crash).
+    command: redis-server --appendonly yes --appendfsync everysec
+    ports:
+      # Host 6379 is already taken by another project on this machine;
+      # the container port is unchanged, only the host binding moves.
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  pgdata:
+  redisdata:
