@@ -4,9 +4,12 @@
  * Brand palette.
  *
  * Defined once here as CSS variables and exposed to Tailwind through
- * @theme inline, so the dashboard step gets `bg-brand-green`,
- * `border-subtle`, `text-muted` and friends for free rather than
+ * @theme inline, so components get `bg-brand-green`, `border-subtle`,
+ * `text-text-muted` and the status colours for free rather than
  * re-typing hex codes into every component.
+ *
+ * The status colours in particular exist so that Badge.tsx is the only file
+ * that maps an EmailStatus to a colour; nothing else should reach for these.
  */
 :root {
   --background: #ffffff;
@@ -15,20 +18,36 @@
   /* Primary action green - the solid "Login" button. */
   --brand-green: #0fa958;
   --brand-green-hover: #0d9550;
-  /* Pale green fill behind the "Login with Google" button. */
+  /* Pale green fill: the Google button, and the active nav pill. */
   --brand-green-light: #e9f7ef;
   --brand-green-light-hover: #ddf1e5;
+  /* Text sitting on the pale green pill. */
+  --brand-green-dark: #0a6b39;
 
   /* Surfaces */
   --surface: #ffffff;
-  --surface-muted: #f5f6f7;
+  --surface-muted: #f4f5f6;
+  --surface-muted-hover: #eceef0;
   --page-bg: #fbfbfc;
+  --skeleton-highlight: #e6e8ea;
 
   /* Lines and type */
   --border-subtle: #e5e7eb;
   --border-input: #ececed;
+  /* The row separator in the list - lighter than a normal border. */
+  --border-hairline: #f0f1f2;
   --text-muted: #9ca3af;
   --text-secondary: #6b7280;
+
+  /* Status pills */
+  --status-amber-bg: #fdecd8;
+  --status-amber-fg: #b45309;
+  --status-grey-bg: #f1f2f3;
+  --status-grey-fg: #4b5563;
+  --status-red-bg: #fdecec;
+  --status-red-fg: #c02626;
+  --status-slate-bg: #eef1f4;
+  --status-slate-fg: #64748b;
 
   /* Feedback */
   --danger: #dc2626;
@@ -44,15 +63,27 @@
   --color-brand-green-hover: var(--brand-green-hover);
   --color-brand-green-light: var(--brand-green-light);
   --color-brand-green-light-hover: var(--brand-green-light-hover);
+  --color-brand-green-dark: var(--brand-green-dark);
 
   --color-surface: var(--surface);
   --color-surface-muted: var(--surface-muted);
+  --color-surface-muted-hover: var(--surface-muted-hover);
   --color-page-bg: var(--page-bg);
 
   --color-border-subtle: var(--border-subtle);
   --color-border-input: var(--border-input);
+  --color-border-hairline: var(--border-hairline);
   --color-text-muted: var(--text-muted);
   --color-text-secondary: var(--text-secondary);
+
+  --color-status-amber-bg: var(--status-amber-bg);
+  --color-status-amber-fg: var(--status-amber-fg);
+  --color-status-grey-bg: var(--status-grey-bg);
+  --color-status-grey-fg: var(--status-grey-fg);
+  --color-status-red-bg: var(--status-red-bg);
+  --color-status-red-fg: var(--status-red-fg);
+  --color-status-slate-bg: var(--status-slate-bg);
+  --color-status-slate-fg: var(--status-slate-fg);
 
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
@@ -64,9 +95,18 @@
 
 /*
  * No dark-mode block. The Figma screens are a single light design, and a
- * prefers-color-scheme override would repaint the login card to something
- * that no longer matches them.
+ * prefers-color-scheme override would repaint them into something that no
+ * longer matches.
  */
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
 
 body {
   background: var(--background);

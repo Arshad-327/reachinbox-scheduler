@@ -15,6 +15,31 @@ const VIEW_STATUSES: Record<EmailView, EmailStatus[]> = {
   sent: ['SENT', 'FAILED'],
 };
 
+/**
+ * Strips tags and collapses whitespace so a body can sit on one dashboard row.
+ *
+ * Presentation only — the result is rendered as text by the client, never as
+ * HTML, so this is truncation and not sanitisation.
+ */
+const PREVIEW_LENGTH = 160;
+
+function toBodyPreview(html: string): string {
+  const text = html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH)}…` : text;
+}
+
 export function toEmailJobDTO(row: EmailJob): EmailJobDTO {
   return {
     id: row.id,
@@ -23,6 +48,7 @@ export function toEmailJobDTO(row: EmailJob): EmailJobDTO {
     recipientEmail: row.recipientEmail,
     recipientName: row.recipientName,
     subject: row.subject,
+    bodyPreview: toBodyPreview(row.bodyHtml),
     status: row.status,
     scheduledAt: row.scheduledAt.toISOString(),
     sentAt: row.sentAt ? row.sentAt.toISOString() : null,

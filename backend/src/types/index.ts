@@ -29,6 +29,12 @@ export interface EmailJobDTO {
   recipientEmail: string;
   recipientName: string | null;
   subject: string;
+  /**
+   * First ~160 characters of the body as plain text, for the dashboard's
+   * one-line row preview. Truncated HERE rather than client-side so a list of
+   * 25 rows does not ship 25 full HTML bodies to render 25 short strings.
+   */
+  bodyPreview: string;
   status: EmailStatus;
   /** ISO-8601. Authoritative send time. */
   scheduledAt: string;

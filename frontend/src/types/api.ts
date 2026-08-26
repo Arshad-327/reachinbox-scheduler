@@ -56,6 +56,12 @@ export interface EmailJobDTO {
   recipientEmail: string;
   recipientName: string | null;
   subject: string;
+  /**
+   * First ~160 characters of the body as plain text. Computed server-side
+   * (toBodyPreview in backend/src/services/emailJob.service.ts) so the list
+   * response does not carry full HTML bodies.
+   */
+  bodyPreview: string;
   status: EmailStatus;
   /** ISO-8601. Authoritative send time. */
   scheduledAt: string;
@@ -118,9 +124,15 @@ export interface RecipientInput {
   name?: string | null;
 }
 
-/** POST /api/campaigns body. */
+/**
+ * POST /api/campaigns body.
+ *
+ * NOTE: there is deliberately no `senderId` here. The backend round-robins
+ * across the active Sender rows itself (pickSenderForCampaign in
+ * campaign.service.ts) and persists the choice per job, so the client never
+ * names a sender. See scheduleCampaignSchema in backend/src/schemas/index.ts.
+ */
 export interface ScheduleCampaignInput {
-  senderId: string;
   subject: string;
   bodyHtml: string;
   /** ISO-8601 timestamp for when the first email goes out. */
@@ -188,6 +200,14 @@ export interface SystemLimits {
   };
   /** Config plus live counters for every active sender. */
   senders: SenderLimitView[];
+}
+
+/** 201 response of POST /api/campaigns. */
+export interface CreateCampaignResult {
+  campaign: CampaignDTO;
+  /** How many recipients were dropped as case-insensitive duplicates. */
+  duplicatesDropped: number;
+  enqueued: number;
 }
 
 /** The error envelope every non-2xx backend response carries. */
