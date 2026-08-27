@@ -45,3 +45,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent instruction files, re-created by `next dev` on every run
+# (see node_modules/next/dist/server/lib/generate-agent-files.js). Nothing in
+# the project reads them, so keep them out of the tree rather than letting a
+# `git add -A` after a demo run put them back.
+AGENTS.md
+CLAUDE.md
