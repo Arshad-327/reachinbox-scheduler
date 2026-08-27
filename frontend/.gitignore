@@ -32,6 +32,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the templates ARE meant to be committed. create-next-app's bare
+# `.env*` matches `.env.local.example` too, and a nested .gitignore beats
+# the root one, so the root's `!.env.local.example` never got a look in and
+# the file a reviewer needs to copy was silently untracked. Re-include here.
+!.env.example
+!.env.local.example
 
 # vercel
 .vercel

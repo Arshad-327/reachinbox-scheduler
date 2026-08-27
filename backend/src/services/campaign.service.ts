@@ -4,6 +4,7 @@ import type { Campaign, EmailStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { createLogger } from '../lib/logger.js';
 import { BadRequestError, InternalError, NotFoundError } from '../lib/errors.js';
+import { isHtmlEmpty, sanitizeHtml } from '../lib/sanitize-html.js';
 import { getActiveSenders, pickSenderForCampaign } from './sender.service.js';
 import { addEmailJob, removeEmailJob } from '../queue/email.queue.js';
 import type { CampaignDTO, CampaignJobCounts, PaginatedResponse } from '../types/index.js';
@@ -119,17 +120,41 @@ export async function createCampaign(
     throw new InternalError('No active senders configured — seed the Sender table from SMTP_ACCOUNTS');
   }
 
+  // 3. Sanitise the body HERE, on the server, before anything persists it.
+  //
+  //    The composer already runs a browser-side pass, but this endpoint is
+  //    plain JSON behind a bearer token: `curl` with a hand-written body never
+  //    loads the editor and never loads that sanitiser. Whatever it posts would
+  //    otherwise be stored on the Campaign, copied verbatim onto every EmailJob
+  //    row, and rendered in a mail client. This is the boundary that cannot be
+  //    skipped, so this is where the allowlist has to run.
+  //
+  //    Done before the transaction on purpose: the sanitised string is what
+  //    gets written to BOTH the campaign and its jobs, so there is exactly one
+  //    version of the body in the system and no path that stores the raw one.
+  const bodyHtml = sanitizeHtml(input.bodyHtml);
+
+  //    A body made only of things the allowlist removes — a lone <script>, an
+  //    <iframe> — sanitises down to nothing. That passed `bodyHtml.min(1)` on
+  //    the way in but has no content to send, so reject it rather than
+  //    scheduling a run of blank emails.
+  if (isHtmlEmpty(bodyHtml)) {
+    throw new BadRequestError(
+      'bodyHtml contained no sendable content after sanitisation — scripts, styles and embedded frames are removed',
+    );
+  }
+
   const { unique, duplicates } = dedupeRecipients(input.recipients);
 
   const created = await prisma.$transaction(
     async (tx) => {
-      // 3. Campaign first: its id feeds every idempotency key below.
+      // 4. Campaign first: its id feeds every idempotency key below.
       const campaign = await tx.campaign.create({
         data: {
           userId,
           senderId: senders[0]!.id,
           subject: input.subject,
-          bodyHtml: input.bodyHtml,
+          bodyHtml,
           startTime: input.startTime,
           delayBetweenMs: input.delayBetweenMs,
           hourlyLimit: input.hourlyLimit,
@@ -138,7 +163,7 @@ export async function createCampaign(
         },
       });
 
-      // 4. One row per recipient, in order.
+      // 5. One row per recipient, in order.
       const rows = [];
       for (let sequence = 0; sequence < unique.length; sequence += 1) {
         const recipient = unique[sequence]!;
@@ -156,7 +181,7 @@ export async function createCampaign(
           recipientEmail: recipient.email,
           recipientName: recipient.name ?? null,
           subject: input.subject,
-          bodyHtml: input.bodyHtml,
+          bodyHtml,
           scheduledAt: new Date(input.startTime.getTime() + sequence * input.delayBetweenMs),
           status: 'SCHEDULED' as EmailStatus,
           idempotencyKey: idempotencyKeyFor(campaign.id, recipient.email, sequence),
@@ -173,7 +198,7 @@ export async function createCampaign(
     { timeout: 30_000, maxWait: 10_000 },
   );
 
-  // 5. Enqueue AFTER the transaction commits — never inside it.
+  // 6. Enqueue AFTER the transaction commits — never inside it.
   //
   //    Inside the transaction we could enqueue jobs and then have the tx roll
   //    back, leaving BullMQ holding jobs that reference EmailJob rows which do

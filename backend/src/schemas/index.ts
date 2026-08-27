@@ -13,9 +13,31 @@ import { z } from 'zod';
  */
 export const MAX_RECIPIENTS_PER_REQUEST = 5000;
 
+/**
+ * A recipient's display name is TRI-STATE on the wire: present, explicitly
+ * null, or omitted.
+ *
+ * It has to be. The name arrives from three places that disagree about how to
+ * spell "no name": the chip input leaves the key off entirely, a CSV upload
+ * with an empty name column yields `null` once it round-trips through JSON,
+ * and a hand-written request may send either. Accepting only `undefined` made
+ * an explicit `null` a 400 on `recipients.N.name` — a rejection with no
+ * product meaning, for a field that is optional in the first place.
+ *
+ * So the schema accepts all three and normalises HERE, at the boundary:
+ * everything downstream sees `string | undefined` and never has to ask which
+ * flavour of empty it is holding. This schema is the authoritative contract —
+ * `RecipientInput` in ../types/index.ts mirrors it, not the other way round.
+ */
 export const recipientSchema = z.object({
   email: z.string().trim().email('must be a valid email address'),
-  name: z.string().trim().max(200).optional(),
+  name: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .nullable()
+    .transform((value) => value ?? undefined),
 });
 
 export const scheduleCampaignSchema = z.object({

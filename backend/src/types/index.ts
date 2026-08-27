@@ -16,9 +16,22 @@ export interface ScheduleCampaignInput {
   recipients: RecipientInput[];
 }
 
+/**
+ * One recipient as ACCEPTED by POST /campaigns.
+ *
+ * This mirrors `recipientSchema` in ../schemas/index.ts, which is the
+ * authoritative contract — the schema is what actually runs on the request, so
+ * where the two could disagree the schema wins and this type is corrected to
+ * match, never the reverse.
+ *
+ * `name` is deliberately tri-state (`string`, `null`, or omitted): callers
+ * spell "no name" differently and all three are accepted. The schema
+ * normalises `null` to `undefined` at the boundary, so nothing past validation
+ * ever sees a null here.
+ */
 export interface RecipientInput {
   email: string;
-  name?: string | null;
+  name?: string | null | undefined;
 }
 
 /** A single scheduled/sent email as returned to the dashboard. */

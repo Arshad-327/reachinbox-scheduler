@@ -122,13 +122,14 @@ export interface StatsResponse {
 export interface RecipientInput {
   email: string;
   /**
-   * OPTIONAL, not nullable. backend/src/types/index.ts declares this
-   * `string | null`, but the zod schema that actually validates the request
-   * (recipientSchema) is `z.string().trim().max(200).optional()` — sending an
-   * explicit null is rejected with a 400 on `recipients.N.name`. The schema
-   * wins, so this mirrors the schema.
+   * Tri-state: a string, an explicit `null`, or omitted. All three are
+   * accepted — `recipientSchema` in the backend is
+   * `.optional().nullable()` and normalises `null` to `undefined` server-side,
+   * so a CSV round-trip that turns an empty name column into `null` no longer
+   * gets a 400 on `recipients.N.name`. The schema is the contract; this
+   * mirrors it.
    */
-  name?: string;
+  name?: string | null;
 }
 
 /**
